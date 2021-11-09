@@ -7,22 +7,29 @@ import (
 	pb "github.com/Miniim98/MandatoryExercise2/proto"
 )
 
+type Node struct {
+	int id
+	//port Address
+
+}
+
 func main() {
-	SetUpLog(id)
+	SetUpLog()
 
 	for  i := 0; i <100000; i++ {
-		requestAccess()
+		sendAccessRequest()
+		//listen for others sending accessrequests
 	}
 }
 
-func sendAccessRequest() {
+func sendAccessRequest(c pb.dMEClient) {
 
 }
 
 func sendAccesResponse() {}
 
-func SetUpLog(int id) {
-	var filename = "log " + id
+func SetUpLog() {
+	var filename = "log " + os.Args[0]
 	LOG_FILE := filename
 	logFile, err := os.OpenFile(LOG_FILE, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0644)
 	if err != nil {

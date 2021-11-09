@@ -1,4 +1,4 @@
-module MandatoryExercise2
+module github.com/Miniim98/MandatoryExercise2
 
 go 1.17
 
