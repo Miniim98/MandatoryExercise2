@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"net"
 	"os"
 	"strconv"
@@ -37,6 +38,11 @@ type timestamp struct {
 	mu   sync.Mutex
 }
 
+type State struct {
+	st string
+	mu sync.Mutex
+}
+
 var Time timestamp
 
 func (c *timestamp) UpTimestamp() {
@@ -45,7 +51,19 @@ func (c *timestamp) UpTimestamp() {
 	Time.time++
 }
 
-var state string
+func (s *State) readState() *State {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s
+}
+
+func (s *State) writeState(newState string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.st = newState
+}
+
+var state State
 
 func main() {
 	Time.time = 0
@@ -76,16 +94,15 @@ func main() {
 	fmt.Println("Register")
 
 	n.sendRequestAccess()
-	time.Sleep(20 * time.Second)
 
 }
 
 func (n *Node) sendRequestAccess() {
 	for {
-		if state != "HELD" {
+		if state.readState().st != "HELD" {
 			Time.UpTimestamp()
 			fmt.Println("sendRequest")
-			state = "WANTED"
+			state.writeState("WANTED")
 			noOfResponse := 0
 
 			kvpairs, _, err := n.SDKV.List("", nil)
@@ -110,6 +127,7 @@ func (n *Node) sendRequestAccess() {
 					n.SetupClientToRequest(key, string(kventry.Value))
 				}
 			}
+			log.Println("Sending request")
 
 			if len(n.Clients) > 0 {
 				for _, member := range n.Clients {
@@ -133,9 +151,13 @@ func (n *Node) sendRequestAccess() {
 
 				}
 			}
-			if noOfResponse == len(n.Clients) || noOfResponse != 0 {
+			if noOfResponse == len(n.Clients) {
 				log.Println("I HAVE THE KEY")
-				state = "HELD"
+				file, _ := os.OpenFile("CriticalSection.txt", os.O_APPEND|os.O_RDWR|os.O_CREATE, 0666)
+				io.WriteString(file, strconv.Itoa(n.id)+" has the key\n")
+				//os.WriteFile("CriticalSection.txt", []byte(strconv.Itoa(n.id)+" has the key\n"), 0666)
+				fmt.Println()
+				state.writeState("HELD")
 			}
 
 		}
@@ -156,47 +178,67 @@ func (n *Node) RequestAccess(stream pb.DME_RequestAccessServer) error {
 			return err
 		}
 		Time.UpTimestamp()
-		if state == "HELD" || (state == "WANTED" && (Time.time < in.Timestamp.Events)) {
+		var first int
+
+		if Time.time == in.Timestamp.Events {
+			first = int(math.Min(float64(n.id), float64(in.RequestingId)))
+		} else {
+			if Time.time < in.Timestamp.Events {
+				first = n.id
+			} else {
+				first = int(in.RequestingId)
+			}
+		}
+
+		if state.readState().st == "HELD" || (state.readState().st == "WANTED" && first == n.id) {
 			streamQueue = append(streamQueue, stream)
 		} else {
 			Time.UpTimestamp()
 			err := stream.Send(&pb.AccessResponse{Timestamp: &pb.Timestamp{Events: Time.time}, ResponseGranted: true})
-			log.Printf("Sending response %d to ", in.RequestingId)
+			log.Printf("Sending response to %d ", in.RequestingId)
 			if err != nil {
 				log.Printf("Error when sending response Error : %v", err)
 			}
 		}
-		if state == "HELD" {
-			time.Sleep(20 * time.Second)
+		if state.readState().st == "HELD" {
+			time.Sleep(2 * time.Second)
 			log.Println("I NO LONGER HAVE THE KEY")
-			state = "RELEASED"
+			file, _ := os.OpenFile("CriticalSection.txt", os.O_APPEND|os.O_RDWR|os.O_CREATE, 0666)
+			io.WriteString(file, strconv.Itoa(n.id)+" no longer has the key\n")
+			//os.WriteFile("CriticalSection.txt", []byte(strconv.Itoa(n.id)+" no longer has the key\n"), 0666)
+			state.writeState("RELEASED")
+			time.Sleep(2 * time.Second)
 			for i := 0; i < len(streamQueue); i++ {
 				Time.UpTimestamp()
 				err := streamQueue[i].Send(&pb.AccessResponse{Timestamp: &pb.Timestamp{Events: Time.time}, ResponseGranted: true})
 				log.Println("Sending response to queue")
 				if err != nil {
 					log.Printf("Error when sending response Error : %v", err)
+
 				}
 			}
+			n.sendRequestAccess()
+
 		}
 	}
 }
 
 func (n *Node) listen() {
-	lis, err := net.Listen("tcp", n.Addr)
-	if err != nil {
-		log.Fatalf("failed to listen on port: "+n.Addr, err)
-	}
-	var opts []grpc.ServerOption
-	_n := grpc.NewServer(opts...)
-	fmt.Println("listening on port: " + n.Addr)
-	pb.RegisterDMEServer(_n, n)
+	for {
+		lis, err := net.Listen("tcp", n.Addr)
+		if err != nil {
+			log.Fatalf("failed to listen on port: "+n.Addr, err)
+		}
+		var opts []grpc.ServerOption
+		_n := grpc.NewServer(opts...)
+		fmt.Println("listening on port: " + n.Addr)
+		pb.RegisterDMEServer(_n, n)
 
-	reflection.Register(_n)
-	if err := _n.Serve(lis); err != nil {
-		log.Fatalf("failed to serve on port: "+n.Addr, err)
+		reflection.Register(_n)
+		if err := _n.Serve(lis); err != nil {
+			log.Fatalf("failed to serve on port: "+n.Addr, err)
+		}
 	}
-
 }
 
 func (n *Node) SetUpLog() {

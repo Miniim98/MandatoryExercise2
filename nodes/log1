@@ -1,0 +1,14 @@
+2021/11/16 20:49:12 Successfully registered with Consul.
+2021/11/16 20:49:12 Sending request
+2021/11/16 20:49:16 I HAVE THE KEY
+2021/11/16 20:49:18 I NO LONGER HAVE THE KEY
+2021/11/16 20:49:18 Sending request
+2021/11/16 20:49:18 I HAVE THE KEY
+2021/11/16 20:49:20 Sending response to queue
+2021/11/16 20:49:25 I NO LONGER HAVE THE KEY
+2021/11/16 20:49:25 Sending request
+2021/11/16 20:49:25 Sending request
+2021/11/16 20:49:27 Sending response to queue
+2021/11/16 20:49:27 Sending request
+2021/11/16 20:49:27 Sending response to 2 
+2021/11/16 20:49:29 Sending response to 2 
