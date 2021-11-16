@@ -7,5 +7,9 @@ go run main.go [id] [port] [sharedPort]
 port: the port this node will be listening on
 sharedport: the port which all nodes use to communicate
 
+to start consul : 
+consul agent -dev
+to end consul :
+consul leave
 ex:
 go run main.go 3 :5002 localhost:8500

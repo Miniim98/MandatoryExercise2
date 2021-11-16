@@ -45,8 +45,6 @@ func (c *timestamp) UpTimestamp() {
 	Time.time++
 }
 
-//var queue []serf.Member
-//var network []serf.Member
 var state string
 
 func main() {
@@ -77,72 +75,76 @@ func main() {
 	n.registerService()
 	fmt.Println("Register")
 
-	for i := 0; i < 10; i++ {
+	n.sendRequestAccess()
+	time.Sleep(20 * time.Second)
 
-		n.sendRequestAccess()
-		time.Sleep(10 * time.Second)
-		//listen for others sending accessrequests
-	}
-
-	for {
-	}
 }
 
 func (n *Node) sendRequestAccess() {
-	fmt.Println("sendRequest")
-	state = "WANTED"
-	noOfResponse := 0
+	for {
+		if state != "HELD" {
+			Time.UpTimestamp()
+			fmt.Println("sendRequest")
+			state = "WANTED"
+			noOfResponse := 0
 
-	kvpairs, _, err := n.SDKV.List("", nil)
-	if err != nil {
-		log.Println(err)
-		return
-	}
-
-	for _, kventry := range kvpairs {
-		key, err := strconv.Atoi(kventry.Key)
-		if err != nil {
-			log.Fatal("A key is in the wrong format")
-			os.Exit(1)
-		}
-
-		if n.id == key {
-			continue
-		}
-		if n.Clients[key] == nil {
-			fmt.Println("New member: ", key)
-			// connection not established previously
-			n.SetupClientToRequest(key, string(kventry.Value))
-		}
-	}
-
-	if len(n.Clients) > 0 {
-		for _, member := range n.Clients {
-			message := pb.AccesRequest{Timestamp: &pb.Timestamp{Events: Time.time}, RequestingId: int32(n.id)}
-			stream, err := member.RequestAccess(context.Background())
+			kvpairs, _, err := n.SDKV.List("", nil)
 			if err != nil {
-				log.Fatalf("Error when calling RequestAccess: %s", err)
-			}
-			if err := stream.Send(&message); err != nil {
-				log.Printf("Error sending stream to Publish : %v", err)
-			}
-			in, err := stream.Recv()
-			if err == io.EOF {
+				log.Println(err)
 				return
 			}
-			if in.ResponseGranted {
-				noOfResponse++
+
+			for _, kventry := range kvpairs {
+				key, err := strconv.Atoi(kventry.Key)
+				if err != nil {
+					log.Fatal("A key is in the wrong format")
+					os.Exit(1)
+				}
+
+				if n.id == key {
+					continue
+				}
+				if n.Clients[key] == nil {
+					fmt.Println("New member: ", key)
+					// connection not established previously
+					n.SetupClientToRequest(key, string(kventry.Value))
+				}
+			}
+
+			if len(n.Clients) > 0 {
+				for _, member := range n.Clients {
+					Time.UpTimestamp()
+					message := pb.AccesRequest{Timestamp: &pb.Timestamp{Events: Time.time}, RequestingId: int32(n.id)}
+					stream, err := member.RequestAccess(context.Background())
+					if err != nil {
+						log.Fatalf("Error when calling RequestAccess: %s", err)
+					}
+					if err := stream.Send(&message); err != nil {
+						log.Printf("Error sending stream to Publish : %v", err)
+					}
+					in, err := stream.Recv()
+					if err == io.EOF {
+						return
+					}
+					Time.UpTimestamp()
+					if in.ResponseGranted {
+						noOfResponse++
+					}
+
+				}
+			}
+			if noOfResponse == len(n.Clients) || noOfResponse != 0 {
+				log.Println("I HAVE THE KEY")
+				state = "HELD"
 			}
 
 		}
-	}
-	if noOfResponse == len(n.Clients) {
-		state = "HELD"
+
 	}
 
 }
 
-func (n *Node) RequestAccess(in *pb.AccesRequest, stream pb.DME_RequestAccessServer) error {
+func (n *Node) RequestAccess(stream pb.DME_RequestAccessServer) error {
 	var streamQueue []pb.DME_RequestAccessServer = nil
 
 	for {
@@ -153,24 +155,31 @@ func (n *Node) RequestAccess(in *pb.AccesRequest, stream pb.DME_RequestAccessSer
 		if err != nil {
 			return err
 		}
+		Time.UpTimestamp()
 		if state == "HELD" || (state == "WANTED" && (Time.time < in.Timestamp.Events)) {
 			streamQueue = append(streamQueue, stream)
 		} else {
+			Time.UpTimestamp()
 			err := stream.Send(&pb.AccessResponse{Timestamp: &pb.Timestamp{Events: Time.time}, ResponseGranted: true})
+			log.Printf("Sending response %d to ", in.RequestingId)
 			if err != nil {
 				log.Printf("Error when sending response Error : %v", err)
 			}
 		}
-		time.Sleep(20 * time.Second)
-		state = "RELEASED"
-		for i := 0; i < len(streamQueue); i++ {
-			err := streamQueue[i].Send(&pb.AccessResponse{Timestamp: &pb.Timestamp{Events: Time.time}, ResponseGranted: true})
-			if err != nil {
-				log.Printf("Error when sending response Error : %v", err)
+		if state == "HELD" {
+			time.Sleep(20 * time.Second)
+			log.Println("I NO LONGER HAVE THE KEY")
+			state = "RELEASED"
+			for i := 0; i < len(streamQueue); i++ {
+				Time.UpTimestamp()
+				err := streamQueue[i].Send(&pb.AccessResponse{Timestamp: &pb.Timestamp{Events: Time.time}, ResponseGranted: true})
+				log.Println("Sending response to queue")
+				if err != nil {
+					log.Printf("Error when sending response Error : %v", err)
+				}
 			}
 		}
 	}
-
 }
 
 func (n *Node) listen() {
@@ -229,7 +238,7 @@ func (n *Node) SetupClientToRequest(id int, addr string) {
 	if err != nil {
 		log.Fatalf("did not connect: %v", err)
 	}
-	defer conn.Close()
+	//defer conn.Close()
 	n.Clients[id] = pb.NewDMEClient(conn)
 
 }
