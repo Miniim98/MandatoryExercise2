@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"os"
@@ -118,15 +119,20 @@ func (n *Node) sendRequestAccess() {
 	if len(n.Clients) > 0 {
 		for _, member := range n.Clients {
 			message := pb.AccesRequest{Timestamp: &pb.Timestamp{Events: Time.time}, RequestingId: int32(n.id)}
-			response, err := member.RequestAccess(context.Background(), &message)
-
+			stream, err := member.RequestAccess(context.Background())
 			if err != nil {
 				log.Fatalf("Error when calling RequestAccess: %s", err)
 			}
-			if response.ResponseGranted {
+			if err := stream.Send(&message); err != nil {
+				log.Printf("Error sending stream to Publish : %v", err)
+			}
+			in, err := stream.Recv()
+			if err == io.EOF {
+				return
+			}
+			if in.ResponseGranted {
 				noOfResponse++
 			}
-			fmt.Println(response)
 
 		}
 	}
@@ -136,11 +142,35 @@ func (n *Node) sendRequestAccess() {
 
 }
 
-func (n *Node) RequestAccess(ctx context.Context, in *pb.AccesRequest) (*pb.AccessResponse, error) {
-	if state == "HELD" || (state == "WANTED" && (Time.time < in.Timestamp.Events)) {
-		fmt.Println("queue")
+func (n *Node) RequestAccess(in *pb.AccesRequest, stream pb.DME_RequestAccessServer) error {
+	var streamQueue []pb.DME_RequestAccessServer = nil
+
+	for {
+		in, err := stream.Recv()
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		if state == "HELD" || (state == "WANTED" && (Time.time < in.Timestamp.Events)) {
+			streamQueue = append(streamQueue, stream)
+		} else {
+			err := stream.Send(&pb.AccessResponse{Timestamp: &pb.Timestamp{Events: Time.time}, ResponseGranted: true})
+			if err != nil {
+				log.Printf("Error when sending response Error : %v", err)
+			}
+		}
+		time.Sleep(20 * time.Second)
+		state = "RELEASED"
+		for i := 0; i < len(streamQueue); i++ {
+			err := streamQueue[i].Send(&pb.AccessResponse{Timestamp: &pb.Timestamp{Events: Time.time}, ResponseGranted: true})
+			if err != nil {
+				log.Printf("Error when sending response Error : %v", err)
+			}
+		}
 	}
-	return &pb.AccessResponse{Timestamp: &pb.Timestamp{Events: Time.time}, ResponseGranted: false}, nil
+
 }
 
 func (n *Node) listen() {
@@ -148,8 +178,8 @@ func (n *Node) listen() {
 	if err != nil {
 		log.Fatalf("failed to listen on port: "+n.Addr, err)
 	}
-
-	_n := grpc.NewServer()
+	var opts []grpc.ServerOption
+	_n := grpc.NewServer(opts...)
 	fmt.Println("listening on port: " + n.Addr)
 	pb.RegisterDMEServer(_n, n)
 
@@ -201,11 +231,5 @@ func (n *Node) SetupClientToRequest(id int, addr string) {
 	}
 	defer conn.Close()
 	n.Clients[id] = pb.NewDMEClient(conn)
-
-	r, err := n.Clients[id].RequestAccess(context.Background(), &pb.AccesRequest{Timestamp: &pb.Timestamp{Events: Time.time}, RequestingId: int32(n.id)})
-	if err != nil {
-		log.Fatalf("could not Request: %v", err)
-	}
-	log.Printf("Greeting from the other node: %t", r.ResponseGranted)
 
 }

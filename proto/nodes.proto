@@ -3,7 +3,7 @@ package proto;
 option go_package = "https://github.com/Miniim98/MandatoryExercise2/proto";
 
 service DME{
-    rpc RequestAccess(AccesRequest) returns (AccessResponse){}
+    rpc RequestAccess(stream AccesRequest) returns (stream AccessResponse){}
 }
 
 message AccesRequest{
