@@ -1,0 +1,11 @@
+To start a node:
+
+navigate to nodes folder
+run command:
+go run main.go [id] [port] [sharedPort]
+
+port: the port this node will be listening on
+sharedport: the port which all nodes use to communicate
+
+ex:
+go run main.go 3 :5002 localhost:8500

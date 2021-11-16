@@ -1,0 +1,4 @@
+2021/11/16 13:47:13 Successfully registered with Consul.
+2021/11/16 13:48:49 Successfully registered with Consul.
+2021/11/16 13:58:55 Successfully registered with Consul.
+2021/11/16 13:58:57 could not Request: rpc error: code = Unavailable desc = connection error: desc = "transport: Error while dialing dial tcp :5000: connectex: No connection could be made because the target machine actively refused it."

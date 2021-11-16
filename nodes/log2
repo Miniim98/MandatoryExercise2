@@ -1,0 +1,18 @@
+2021/11/16 13:34:43 Successfully registered with Consul.
+2021/11/16 13:44:24 Successfully registered with Consul.
+2021/11/16 13:45:49 Successfully registered with Consul.
+2021/11/16 13:49:08 Successfully registered with Consul.
+2021/11/16 13:51:00 Successfully registered with Consul.
+2021/11/16 13:51:02 could not Request: rpc error: code = Unavailable desc = connection error: desc = "transport: Error while dialing dial tcp :5000: connectex: No connection could be made because the target machine actively refused it."
+2021/11/16 13:52:13 Successfully registered with Consul.
+2021/11/16 13:52:15 could not Request: rpc error: code = Unavailable desc = connection error: desc = "transport: Error while dialing dial tcp :5000: connectex: No connection could be made because the target machine actively refused it."
+2021/11/16 14:08:27 Successfully registered with Consul.
+2021/11/16 14:08:27 could not Request: rpc error: code = Internal desc = grpc: error while marshaling: proto: Marshal called with nil
+2021/11/16 14:13:25 Successfully registered with Consul.
+2021/11/16 14:13:25 Greeting from the other node: false
+2021/11/16 14:13:25 Error when calling RequestAccess: rpc error: code = Canceled desc = grpc: the client connection is closing
+2021/11/16 14:17:30 Successfully registered with Consul.
+2021/11/16 14:17:30 Greeting from the other node: false
+2021/11/16 14:17:30 Error when calling RequestAccess: rpc error: code = Canceled desc = grpc: the client connection is closing
+2021/11/16 14:19:27 Successfully registered with Consul.
+2021/11/16 14:19:49 could not Request: rpc error: code = Unavailable desc = connection error: desc = "transport: Error while dialing dial tcp 127.0.0.1:5000: connectex: No connection could be made because the target machine actively refused it."

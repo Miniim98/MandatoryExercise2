@@ -8,17 +8,26 @@ import (
 	"os"
 	"strconv"
 	"sync"
+	"time"
 
-	"github.com/hashicorp/serf/serf"
-	"github.com/pkg/errors"
+	"github.com/hashicorp/consul/api"
+	//"github.com/hashicorp/serf/serf"
+	//"github.com/pkg/errors"
 
 	pb "github.com/Miniim98/MandatoryExercise2/proto"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 )
 
 type Node struct {
 	id   int
-	port string
+	Addr string
+	// Consul related variables
+	SDAddress string
+	SDKV      api.KV
+
+	// used to make requests
+	Clients map[int]pb.DMEClient
 	pb.UnimplementedDMEServer
 }
 
@@ -37,53 +46,79 @@ func (c *timestamp) UpTimestamp() {
 
 //var queue []serf.Member
 //var network []serf.Member
-var this Node
 var state string
 
 func main() {
 	Time.time = 0
-	var err error
-	this.port = os.Args[0]
-	hostPort := os.Args[1]
-	cluster, err := setupCluster(
-		os.Getenv(this.port),
-		os.Getenv(hostPort))
-	if err != nil {
-		log.Fatal(err)
+	//var err error
+	args := os.Args[1:]
+	if len(args) < 3 {
+		fmt.Println("Arguments required: <id> <listening address> <consul address>")
+		os.Exit(1)
 	}
-	defer cluster.Leave()
-	fmt.Println("cluster created")
-	this.id = len(getOtherMembers(cluster))
-	SetUpLog()
-	go listen()
 
-	for i := 0; i < 100000; i++ {
-		members := getOtherMembers(cluster)
-		sendRequestAccess(members)
+	// args in order
+	id, err := strconv.Atoi(args[0])
+	listenaddr := args[1]
+	sdaddress := args[2]
+
+	if err != nil {
+		fmt.Println("id must be an integer")
+		os.Exit(1)
+	}
+
+	n := Node{id: id, Addr: listenaddr, SDAddress: sdaddress, Clients: nil}
+	n.SetUpLog()
+
+	n.Clients = make(map[int]pb.DMEClient)
+	go n.listen()
+	fmt.Println("Listen")
+	n.registerService()
+	fmt.Println("Register")
+
+	for i := 0; i < 10; i++ {
+
+		n.sendRequestAccess()
+		time.Sleep(10 * time.Second)
 		//listen for others sending accessrequests
+	}
+
+	for {
 	}
 }
 
-//func sendAccessRequest(c pb.dMEClient) {}
-
-func sendRequestAccess(otherMembers []serf.Member) {
+func (n *Node) sendRequestAccess() {
+	fmt.Println("sendRequest")
 	state = "WANTED"
 	noOfResponse := 0
-	if len(otherMembers) > 1 {
-		for _, member := range otherMembers {
-			var conn *grpc.ClientConn
-			conn, err := grpc.Dial(member.Addr.String(), grpc.WithInsecure())
-			if err != nil {
-				log.Fatalf("Could not connect: %s", err)
-			}
 
-			// Defer means: When this function returns, call this method (meaing, one main is done, close connection)
-			defer conn.Close()
+	kvpairs, _, err := n.SDKV.List("", nil)
+	if err != nil {
+		log.Println(err)
+		return
+	}
 
-			//  Create new Client from generated gRPC code from proto
-			c := pb.NewDMEClient(conn)
-			message := pb.AccesRequest{Timestamp: &pb.Timestamp{Events: Time.time}, RequestingId: int32(this.id)}
-			response, err := c.RequestAccess(context.Background(), &message)
+	for _, kventry := range kvpairs {
+		key, err := strconv.Atoi(kventry.Key)
+		if err != nil {
+			log.Fatal("A key is in the wrong format")
+			os.Exit(1)
+		}
+
+		if n.id == key {
+			continue
+		}
+		if n.Clients[key] == nil {
+			fmt.Println("New member: ", key)
+			// connection not established previously
+			n.SetupClientToRequest(key, string(kventry.Value))
+		}
+	}
+
+	if len(n.Clients) > 0 {
+		for _, member := range n.Clients {
+			message := pb.AccesRequest{Timestamp: &pb.Timestamp{Events: Time.time}, RequestingId: int32(n.id)}
+			response, err := member.RequestAccess(context.Background(), &message)
 
 			if err != nil {
 				log.Fatalf("Error when calling RequestAccess: %s", err)
@@ -91,38 +126,42 @@ func sendRequestAccess(otherMembers []serf.Member) {
 			if response.ResponseGranted {
 				noOfResponse++
 			}
+			fmt.Println(response)
 
 		}
 	}
-	if noOfResponse == len(otherMembers) {
+	if noOfResponse == len(n.Clients) {
 		state = "HELD"
 	}
+
 }
 
-func (node *Node) RequestAccess(ctx context.Context, in *pb.AccesRequest) (*pb.AccessResponse, error) {
+func (n *Node) RequestAccess(ctx context.Context, in *pb.AccesRequest) (*pb.AccessResponse, error) {
 	if state == "HELD" || (state == "WANTED" && (Time.time < in.Timestamp.Events)) {
 		fmt.Println("queue")
 	}
-	return nil, nil
+	return &pb.AccessResponse{Timestamp: &pb.Timestamp{Events: Time.time}, ResponseGranted: false}, nil
 }
 
-func listen() {
-	lis, err := net.Listen("tcp", this.port)
+func (n *Node) listen() {
+	lis, err := net.Listen("tcp", n.Addr)
 	if err != nil {
-		log.Fatalf("failed to listen on port: "+this.port, err)
+		log.Fatalf("failed to listen on port: "+n.Addr, err)
 	}
 
-	grpcServer := grpc.NewServer()
-	fmt.Println("listening on port: " + this.port)
-	pb.RegisterDMEServer(grpcServer, &this)
+	_n := grpc.NewServer()
+	fmt.Println("listening on port: " + n.Addr)
+	pb.RegisterDMEServer(_n, n)
 
-	if err := grpcServer.Serve(lis); err != nil {
-		log.Fatalf("failed to serve on port: "+this.port, err)
+	reflection.Register(_n)
+	if err := _n.Serve(lis); err != nil {
+		log.Fatalf("failed to serve on port: "+n.Addr, err)
 	}
+
 }
 
-func SetUpLog() {
-	var filename = "log" + strconv.Itoa(this.id)
+func (n *Node) SetUpLog() {
+	var filename = "log" + strconv.Itoa(n.id)
 	LOG_FILE := filename
 	logFile, err := os.OpenFile(LOG_FILE, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0644)
 	if err != nil {
@@ -131,36 +170,42 @@ func SetUpLog() {
 	log.SetOutput(logFile)
 }
 
-func setupCluster(advertiseAddr string, clusterAddr string) (*serf.Serf, error) {
-	conf := serf.DefaultConfig()
-	conf.Init()
-	conf.MemberlistConfig.AdvertiseAddr = advertiseAddr
-
-	cluster, err := serf.Create(conf)
+func (n *Node) registerService() {
+	fmt.Println("Reached register")
+	config := api.DefaultConfig()
+	config.Address = n.SDAddress
+	consul, err := api.NewClient(config)
 	if err != nil {
-		return nil, errors.Wrap(err, "Couldn't create cluster")
+		log.Println("Unable to contact Service Discovery.")
+	}
+	kv := consul.KV()
+	p := &api.KVPair{Key: strconv.Itoa(n.id), Value: []byte(n.Addr)}
+	_, err = kv.Put(p, nil)
+	if err != nil {
+		log.Panicf("Unable to register with Service Discovery. error : %v", err)
 	}
 
-	_, err = cluster.Join([]string{clusterAddr}, true)
-	if err != nil {
-		log.Printf("Couldn't join cluster, starting own: %v\n", err)
-	}
+	// store the kv for future use
+	n.SDKV = *kv
 
-	return cluster, nil
+	log.Println("Successfully registered with Consul.")
 }
 
-func getOtherMembers(cluster *serf.Serf) []serf.Member {
-	members := cluster.Members()
-	for i := 0; i < len(members); {
-		if members[i].Name == cluster.LocalMember().Name || members[i].Status != serf.StatusAlive {
-			if i < len(members)-1 {
-				members = append(members[:i], members[i+1:]...)
-			} else {
-				members = members[:i]
-			}
-		} else {
-			i++
-		}
+// Setup a new grpc client for contacting the server at addr.
+func (n *Node) SetupClientToRequest(id int, addr string) {
+
+	// setup connection with other node
+	conn, err := grpc.Dial("127.0.0.1"+addr, grpc.WithInsecure())
+	if err != nil {
+		log.Fatalf("did not connect: %v", err)
 	}
-	return members
+	defer conn.Close()
+	n.Clients[id] = pb.NewDMEClient(conn)
+
+	r, err := n.Clients[id].RequestAccess(context.Background(), &pb.AccesRequest{Timestamp: &pb.Timestamp{Events: Time.time}, RequestingId: int32(n.id)})
+	if err != nil {
+		log.Fatalf("could not Request: %v", err)
+	}
+	log.Printf("Greeting from the other node: %t", r.ResponseGranted)
+
 }
