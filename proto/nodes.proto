@@ -3,12 +3,17 @@ package proto;
 option go_package = "https://github.com/Miniim98/MandatoryExercise2/proto";
 
 service DME{
-    rpc requestAccess(AccesRequest) returns (AccesRequest){}
+    rpc RequestAccess(AccesRequest) returns (AccessResponse){}
 }
 
 message AccesRequest{
     Timestamp timestamp = 1;
     int32 RequestingId = 2;
+}
+
+message AccessResponse{
+    Timestamp timestamp = 1;
+    bool responseGranted = 2;
 }
 
 message Timestamp {
