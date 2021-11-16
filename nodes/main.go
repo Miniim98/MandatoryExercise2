@@ -1,11 +1,8 @@
 package main
 
 import (
-<<<<<<< Updated upstream
-	"os"
-	"log"
-=======
 	"context"
+	"fmt"
 	"log"
 	"net"
 	"os"
@@ -16,24 +13,10 @@ import (
 	"github.com/pkg/errors"
 
 	pb "github.com/Miniim98/MandatoryExercise2/proto"
->>>>>>> Stashed changes
 	"google.golang.org/grpc"
-	pb "github.com/Miniim98/MandatoryExercise2/proto"
 )
 
 type Node struct {
-<<<<<<< Updated upstream
-	int id
-	//port Address
-
-}
-
-func main() {
-	SetUpLog()
-
-	for  i := 0; i <100000; i++ {
-		sendAccessRequest()
-=======
 	id   int
 	port string
 	pb.UnimplementedDMEServer
@@ -52,46 +35,35 @@ func (c *timestamp) UpTimestamp() {
 	Time.time++
 }
 
-var queue []Node
-var network []Node
+//var queue []serf.Member
+//var network []serf.Member
 var this Node
 var state string
 
 func main() {
 	Time.time = 0
 	var err error
-	this.id, err = strconv.Atoi(os.Args[1])
-	if err != nil {
-		log.Fatalf("first argument should be an integer ")
-		os.Exit(1)
-	}
-
-	SetUpLog()
-	connectToNetwork()
-	go listen()
+	this.port = os.Args[0]
+	hostPort := os.Args[1]
 	cluster, err := setupCluster(
 		os.Getenv(this.port),
-		os.Getenv("CLUSTER_ADDR"))
+		os.Getenv(hostPort))
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer cluster.Leave()
+	fmt.Println("cluster created")
+	this.id = len(getOtherMembers(cluster))
+	SetUpLog()
+	go listen()
 
 	for i := 0; i < 100000; i++ {
 		members := getOtherMembers(cluster)
 		sendRequestAccess(members)
->>>>>>> Stashed changes
 		//listen for others sending accessrequests
 	}
 }
 
-<<<<<<< Updated upstream
-func sendAccessRequest(c pb.dMEClient) {
-
-}
-
-func sendAccesResponse() {}
-=======
 //func sendAccessRequest(c pb.dMEClient) {}
 
 func sendRequestAccess(otherMembers []serf.Member) {
@@ -129,7 +101,7 @@ func sendRequestAccess(otherMembers []serf.Member) {
 
 func (node *Node) RequestAccess(ctx context.Context, in *pb.AccesRequest) (*pb.AccessResponse, error) {
 	if state == "HELD" || (state == "WANTED" && (Time.time < in.Timestamp.Events)) {
-		queue = append(queue, Node{id: int(in.RequestingId)})
+		fmt.Println("queue")
 	}
 	return nil, nil
 }
@@ -141,7 +113,7 @@ func listen() {
 	}
 
 	grpcServer := grpc.NewServer()
-
+	fmt.Println("listening on port: " + this.port)
 	pb.RegisterDMEServer(grpcServer, &this)
 
 	if err := grpcServer.Serve(lis); err != nil {
@@ -149,19 +121,8 @@ func listen() {
 	}
 }
 
-func connectToNetwork() {
-	for i := 2; i < len(os.Args); i++ {
-		var node Node
-		node.port = os.Args[i]
-		node.id = i - 2
-		network = append(network, node)
-	}
-	this.port = network[this.id].port
-}
->>>>>>> Stashed changes
-
 func SetUpLog() {
-	var filename = "log " + os.Args[0]
+	var filename = "log" + strconv.Itoa(this.id)
 	LOG_FILE := filename
 	logFile, err := os.OpenFile(LOG_FILE, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0644)
 	if err != nil {
