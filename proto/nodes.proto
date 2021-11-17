@@ -14,6 +14,7 @@ message AccesRequest{
 message AccessResponse{
     Timestamp timestamp = 1;
     bool responseGranted = 2;
+    int32 responseId = 3;
 }
 
 message Timestamp {

@@ -13,8 +13,6 @@ import (
 	"time"
 
 	"github.com/hashicorp/consul/api"
-	//"github.com/hashicorp/serf/serf"
-	//"github.com/pkg/errors"
 
 	pb "github.com/Miniim98/MandatoryExercise2/proto"
 	"google.golang.org/grpc"
@@ -25,12 +23,13 @@ type Node struct {
 	id    int
 	Addr  string
 	state State
-	// Consul related variables
+	// Consul related variables:
 	SDAddress string
 	SDKV      api.KV
 
-	// used to make requests
-	Clients map[int]pb.DMEClient
+	// used to make requests:
+	Clients     map[int]pb.DMEClient
+	streamQueue []pb.DME_RequestAccessServer
 	pb.UnimplementedDMEServer
 }
 
@@ -52,21 +51,18 @@ func (c *timestamp) UpTimestamp() {
 	Time.time++
 }
 
-func (s *State) readState() *State {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s
-}
+func (n *Node) readWriteState(str string) *State {
+	n.state.mu.Lock()
+	defer n.state.mu.Unlock()
+	if str != "read" {
+		n.state.st = str
+	}
+	return &n.state
 
-func (s *State) writeState(newState string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.st = newState
 }
 
 func main() {
 	Time.time = 0
-	//var err error
 	args := os.Args[1:]
 	if len(args) < 3 {
 		fmt.Println("Arguments required: <id> <listening address> <consul address>")
@@ -83,53 +79,62 @@ func main() {
 		os.Exit(1)
 	}
 
-	n := Node{id: id, Addr: listenaddr, SDAddress: sdaddress, Clients: nil}
+	n := Node{id: id, Addr: listenaddr, state: State{st: "RELEASED"}, SDAddress: sdaddress, Clients: nil}
 	n.SetUpLog()
 
 	n.Clients = make(map[int]pb.DMEClient)
 	go n.listen()
-	fmt.Println("Listen")
+	fmt.Println("I have started listening")
 	n.registerService()
-	fmt.Println("Register")
-
+	fmt.Println("I have registered")
+	go n.checkForNewMembers()
 	n.sendRequestAccess()
+
+}
+
+func (n *Node) checkForNewMembers() {
+	for {
+		kvpairs, _, err := n.SDKV.List("", nil)
+		if err != nil {
+			log.Println(err)
+			return
+		}
+
+		for _, kventry := range kvpairs {
+			key, err := strconv.Atoi(kventry.Key)
+			if err != nil {
+				log.Fatal("A key is in the wrong format")
+				os.Exit(1)
+			}
+
+			if n.id == key {
+				continue
+			}
+			if n.Clients[key] == nil {
+				fmt.Println("I have found a new member: ", key)
+				log.Println("I have found a new memeber: ", key)
+				n.SetupClientToRequest(key, string(kventry.Value))
+			}
+		}
+		time.Sleep(2 * time.Second)
+	}
 
 }
 
 func (n *Node) sendRequestAccess() {
 	for {
-		if n.state.readState().st != "HELD" {
-			Time.UpTimestamp()
-			fmt.Println("sendRequest")
-			n.state.writeState("WANTED")
-			noOfResponse := 0
-
-			kvpairs, _, err := n.SDKV.List("", nil)
-			if err != nil {
-				log.Println(err)
-				return
-			}
-
-			for _, kventry := range kvpairs {
-				key, err := strconv.Atoi(kventry.Key)
-				if err != nil {
-					log.Fatal("A key is in the wrong format")
-					os.Exit(1)
-				}
-
-				if n.id == key {
-					continue
-				}
-				if n.Clients[key] == nil {
-					fmt.Println("New member: ", key)
-					// connection not established previously
-					n.SetupClientToRequest(key, string(kventry.Value))
-				}
-			}
-			log.Println("Sending request")
-
+		if n.readWriteState("read").st != "HELD" {
+			time.Sleep(5 * time.Second)
 			if len(n.Clients) > 0 {
+
+				Time.UpTimestamp()
+				fmt.Println("sending request")
+				n.readWriteState("WANTED")
+				noOfResponse := 0
+
+				clients := len(n.Clients)
 				for _, member := range n.Clients {
+					log.Println("Sending request")
 					Time.UpTimestamp()
 					message := pb.AccesRequest{Timestamp: &pb.Timestamp{Events: Time.time}, RequestingId: int32(n.id)}
 					stream, err := member.RequestAccess(context.Background())
@@ -137,36 +142,39 @@ func (n *Node) sendRequestAccess() {
 						log.Fatalf("Error when calling RequestAccess: %s", err)
 					}
 					if err := stream.Send(&message); err != nil {
-						log.Printf("Error sending stream to Publish : %v", err)
+						log.Printf("Error sending stream to Request acces : %v", err)
 					}
 					in, err := stream.Recv()
-					if err == io.EOF {
-						return
+					if err != nil {
+						log.Printf("i expected a message but did not receive one. exiting ERROR : %v", err)
+						break
 					}
+					log.Printf("I recived response from %d \n", in.ResponseId)
 					Time.UpTimestamp()
 					if in.ResponseGranted {
 						noOfResponse++
 					}
 
 				}
-			}
-			if noOfResponse == len(n.Clients) {
-				log.Println("I HAVE THE KEY")
-				file, _ := os.OpenFile("CriticalSection.txt", os.O_APPEND|os.O_RDWR|os.O_CREATE, 0666)
-				io.WriteString(file, strconv.Itoa(n.id)+" has the key\n")
-				//os.WriteFile("CriticalSection.txt", []byte(strconv.Itoa(n.id)+" has the key\n"), 0666)
-				fmt.Println()
-				n.state.writeState("HELD")
+				log.Printf("i received %d responses and i have %d clients", noOfResponse, len(n.Clients))
+				if noOfResponse == clients {
+					n.readWriteState("HELD")
+					log.Println("I HAVE THE KEY")
+					file, _ := os.OpenFile("CriticalSection.txt", os.O_APPEND|os.O_RDWR|os.O_CREATE, 0666)
+					io.WriteString(file, time.Now().Format(time.Stamp)+" "+strconv.Itoa(n.id)+" has the key \n")
+					time.Sleep(3 * time.Second)
+					n.releaseKey()
+				}
 			}
 
 		}
+		time.Sleep(2 * time.Second)
 
 	}
 
 }
 
 func (n *Node) RequestAccess(stream pb.DME_RequestAccessServer) error {
-	var streamQueue []pb.DME_RequestAccessServer = nil
 
 	for {
 		in, err := stream.Recv()
@@ -188,37 +196,38 @@ func (n *Node) RequestAccess(stream pb.DME_RequestAccessServer) error {
 				first = int(in.RequestingId)
 			}
 		}
-		log.Printf("got req from %d", in.RequestingId)
+		log.Printf("got request from %d. My state is %s", in.RequestingId, n.state.st)
 
-		if n.state.readState().st == "HELD" || (n.state.readState().st == "WANTED" && first == n.id) {
-			streamQueue = append(streamQueue, stream)
+		if n.readWriteState("read").st == "HELD" || (n.readWriteState("read").st == "WANTED" && first == n.id) {
+			n.streamQueue = append(n.streamQueue, stream)
 		} else {
 			Time.UpTimestamp()
-			err := stream.Send(&pb.AccessResponse{Timestamp: &pb.Timestamp{Events: Time.time}, ResponseGranted: true})
+			err := stream.Send(&pb.AccessResponse{Timestamp: &pb.Timestamp{Events: Time.time}, ResponseGranted: true, ResponseId: int32(n.id)})
 			log.Printf("Sending response to %d ", in.RequestingId)
 			if err != nil {
 				log.Printf("Error when sending response Error : %v", err)
 			}
 		}
-		if n.state.readState().st == "HELD" {
-			log.Println("I NO LONGER HAVE THE KEY")
-			file, _ := os.OpenFile("CriticalSection.txt", os.O_APPEND|os.O_RDWR|os.O_CREATE, 0666)
-			io.WriteString(file, strconv.Itoa(n.id)+" no longer has the key\n")
-			//os.WriteFile("CriticalSection.txt", []byte(strconv.Itoa(n.id)+" no longer has the key\n"), 0666)
-			n.state.writeState("RELEASED")
-			time.Sleep(2 * time.Second)
-			for i := 0; i < len(streamQueue); i++ {
-				Time.UpTimestamp()
-				err := streamQueue[i].Send(&pb.AccessResponse{Timestamp: &pb.Timestamp{Events: Time.time}, ResponseGranted: true})
-				log.Println("Sending response to queue")
-				if err != nil {
-					log.Printf("Error when sending response Error : %v", err)
+	}
+}
 
-				}
+func (n *Node) releaseKey() {
+	if n.readWriteState("read").st == "HELD" {
+		n.readWriteState("RELEASED")
+		log.Println("I NO LONGER HAVE THE KEY")
+		file, _ := os.OpenFile("CriticalSection.txt", os.O_APPEND|os.O_RDWR|os.O_CREATE, 0666)
+		io.WriteString(file, time.Now().Format(time.Stamp)+" "+strconv.Itoa(n.id)+" no longer has the key\n")
+		time.Sleep(time.Second)
+		for i := 0; i < len(n.streamQueue); i++ {
+			Time.UpTimestamp()
+			err := n.streamQueue[i].Send(&pb.AccessResponse{Timestamp: &pb.Timestamp{Events: Time.time}, ResponseGranted: true, ResponseId: int32(n.id)})
+			log.Printf("Sending response to queue %d", i)
+			if err != nil {
+				log.Printf("Error when sending response Error : %v", err)
+
 			}
-			n.sendRequestAccess()
-
 		}
+		n.streamQueue = nil
 	}
 }
 
@@ -241,7 +250,7 @@ func (n *Node) listen() {
 }
 
 func (n *Node) SetUpLog() {
-	var filename = "log" + strconv.Itoa(n.id)
+	var filename = "log" + strconv.Itoa(n.id) + ".txt"
 	LOG_FILE := filename
 	logFile, err := os.OpenFile(LOG_FILE, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0644)
 	if err != nil {
@@ -279,7 +288,8 @@ func (n *Node) SetupClientToRequest(id int, addr string) {
 	if err != nil {
 		log.Fatalf("did not connect: %v", err)
 	}
-	//defer conn.Close()
+
 	n.Clients[id] = pb.NewDMEClient(conn)
+	log.Printf("Added a client. Number of clients is now %d", len(n.Clients))
 
 }

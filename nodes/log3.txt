@@ -1,0 +1,38 @@
+2021/11/17 21:34:44 Successfully registered with Consul.
+2021/11/17 21:34:44 I have found a new memeber:  1
+2021/11/17 21:34:44 Added a client. Number of clients is now 1
+2021/11/17 21:34:44 I have found a new memeber:  2
+2021/11/17 21:34:44 Added a client. Number of clients is now 2
+2021/11/17 21:34:48 got request from 1. My state is RELEASED
+2021/11/17 21:34:48 Sending response to 1 
+2021/11/17 21:34:49 Sending request
+2021/11/17 21:34:49 I recived response from 2 
+2021/11/17 21:34:49 Sending request
+2021/11/17 21:34:52 I recived response from 1 
+2021/11/17 21:34:52 i received 2 responses and i have 2 clients
+2021/11/17 21:34:52 I HAVE THE KEY
+2021/11/17 21:34:52 got request from 2. My state is HELD
+2021/11/17 21:34:55 I NO LONGER HAVE THE KEY
+2021/11/17 21:34:56 Sending response to queue 0
+2021/11/17 21:35:00 got request from 1. My state is RELEASED
+2021/11/17 21:35:00 Sending response to 1 
+2021/11/17 21:35:03 Sending request
+2021/11/17 21:35:04 I recived response from 1 
+2021/11/17 21:35:04 Sending request
+2021/11/17 21:35:04 I recived response from 2 
+2021/11/17 21:35:04 i received 2 responses and i have 2 clients
+2021/11/17 21:35:04 I HAVE THE KEY
+2021/11/17 21:35:07 got request from 2. My state is HELD
+2021/11/17 21:35:07 I NO LONGER HAVE THE KEY
+2021/11/17 21:35:08 Sending response to queue 0
+2021/11/17 21:35:12 got request from 1. My state is RELEASED
+2021/11/17 21:35:12 Sending response to 1 
+2021/11/17 21:35:15 Sending request
+2021/11/17 21:35:16 I recived response from 1 
+2021/11/17 21:35:16 Sending request
+2021/11/17 21:35:16 I recived response from 2 
+2021/11/17 21:35:16 i received 2 responses and i have 2 clients
+2021/11/17 21:35:16 I HAVE THE KEY
+2021/11/17 21:35:19 got request from 2. My state is HELD
+2021/11/17 21:35:19 I NO LONGER HAVE THE KEY
+2021/11/17 21:35:20 Sending response to queue 0
