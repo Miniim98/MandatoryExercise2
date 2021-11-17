@@ -62,6 +62,7 @@ func (n *Node) readWriteState(str string) *State {
 }
 
 func main() {
+
 	Time.time = 0
 	args := os.Args[1:]
 	if len(args) < 3 {
