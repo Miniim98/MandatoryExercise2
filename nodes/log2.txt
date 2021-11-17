@@ -1,37 +1,42 @@
-2021/11/17 21:34:44 Successfully registered with Consul.
-2021/11/17 21:34:44 I have found a new memeber:  1
-2021/11/17 21:34:44 Added a client. Number of clients is now 1
-2021/11/17 21:34:44 I have found a new memeber:  3
-2021/11/17 21:34:44 Added a client. Number of clients is now 2
-2021/11/17 21:34:48 got request from 1. My state is RELEASED
-2021/11/17 21:34:48 Sending response to 1 
-2021/11/17 21:34:49 Sending request
-2021/11/17 21:34:49 got request from 3. My state is WANTED
-2021/11/17 21:34:49 Sending response to 3 
-2021/11/17 21:34:52 I recived response from 1 
-2021/11/17 21:34:52 Sending request
-2021/11/17 21:34:56 I recived response from 3 
-2021/11/17 21:34:56 i received 2 responses and i have 2 clients
-2021/11/17 21:34:56 I HAVE THE KEY
-2021/11/17 21:34:59 got request from 1. My state is HELD
-2021/11/17 21:34:59 I NO LONGER HAVE THE KEY
-2021/11/17 21:35:00 Sending response to queue 0
-2021/11/17 21:35:04 got request from 3. My state is RELEASED
-2021/11/17 21:35:04 Sending response to 3 
-2021/11/17 21:35:07 Sending request
-2021/11/17 21:35:07 I recived response from 1 
-2021/11/17 21:35:07 Sending request
-2021/11/17 21:35:08 I recived response from 3 
-2021/11/17 21:35:08 i received 2 responses and i have 2 clients
-2021/11/17 21:35:08 I HAVE THE KEY
-2021/11/17 21:35:11 got request from 1. My state is HELD
-2021/11/17 21:35:11 I NO LONGER HAVE THE KEY
-2021/11/17 21:35:12 Sending response to queue 0
-2021/11/17 21:35:16 got request from 3. My state is RELEASED
-2021/11/17 21:35:16 Sending response to 3 
-2021/11/17 21:35:19 Sending request
-2021/11/17 21:35:19 I recived response from 1 
-2021/11/17 21:35:19 Sending request
-2021/11/17 21:35:20 I recived response from 3 
-2021/11/17 21:35:20 i received 2 responses and i have 2 clients
-2021/11/17 21:35:20 I HAVE THE KEY
+2021/11/17 21:48:12 Successfully registered with Consul.
+2021/11/17 21:48:12 I have found a new memeber:  1
+2021/11/17 21:48:12 Added a client. Number of clients is now 1
+2021/11/17 21:48:17 Sending request
+2021/11/17 21:48:17 I recived response from 1 
+2021/11/17 21:48:17 i received 1 responses and i have 1 clients
+2021/11/17 21:48:17 I HAVE THE KEY
+2021/11/17 21:48:19 got request from 1. My state is HELD
+2021/11/17 21:48:20 I NO LONGER HAVE THE KEY
+2021/11/17 21:48:20 I have found a new memeber:  3
+2021/11/17 21:48:20 Added a client. Number of clients is now 2
+2021/11/17 21:48:21 Sending response to queue 0
+2021/11/17 21:48:24 got request from 3. My state is RELEASED
+2021/11/17 21:48:24 Sending response to 3 
+2021/11/17 21:48:28 Sending request
+2021/11/17 21:48:28 got request from 1. My state is WANTED
+2021/11/17 21:48:28 I recived response from 1 
+2021/11/17 21:48:28 Sending request
+2021/11/17 21:48:28 I recived response from 3 
+2021/11/17 21:48:28 i received 2 responses and i have 2 clients
+2021/11/17 21:48:28 I HAVE THE KEY
+2021/11/17 21:48:31 I NO LONGER HAVE THE KEY
+2021/11/17 21:48:32 Sending response to queue 0
+2021/11/17 21:48:36 got request from 3. My state is RELEASED
+2021/11/17 21:48:36 Sending response to 3 
+2021/11/17 21:48:39 Sending request
+2021/11/17 21:48:39 I recived response from 1 
+2021/11/17 21:48:39 Sending request
+2021/11/17 21:48:40 I recived response from 3 
+2021/11/17 21:48:40 i received 2 responses and i have 2 clients
+2021/11/17 21:48:40 I HAVE THE KEY
+2021/11/17 21:48:43 got request from 1. My state is HELD
+2021/11/17 21:48:43 I NO LONGER HAVE THE KEY
+2021/11/17 21:48:44 Sending response to queue 0
+2021/11/17 21:48:48 got request from 3. My state is RELEASED
+2021/11/17 21:48:48 Sending response to 3 
+2021/11/17 21:48:51 Sending request
+2021/11/17 21:48:51 I recived response from 1 
+2021/11/17 21:48:51 Sending request
+2021/11/17 21:48:52 I recived response from 3 
+2021/11/17 21:48:52 i received 2 responses and i have 2 clients
+2021/11/17 21:48:52 I HAVE THE KEY
