@@ -18,7 +18,7 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type DMEClient interface {
-	RequestAccess(ctx context.Context, in *AccesRequest, opts ...grpc.CallOption) (*AccesRequest, error)
+	RequestAccess(ctx context.Context, opts ...grpc.CallOption) (DME_RequestAccessClient, error)
 }
 
 type dMEClient struct {
@@ -29,20 +29,42 @@ func NewDMEClient(cc grpc.ClientConnInterface) DMEClient {
 	return &dMEClient{cc}
 }
 
-func (c *dMEClient) RequestAccess(ctx context.Context, in *AccesRequest, opts ...grpc.CallOption) (*AccesRequest, error) {
-	out := new(AccesRequest)
-	err := c.cc.Invoke(ctx, "/proto.DME/requestAccess", in, out, opts...)
+func (c *dMEClient) RequestAccess(ctx context.Context, opts ...grpc.CallOption) (DME_RequestAccessClient, error) {
+	stream, err := c.cc.NewStream(ctx, &DME_ServiceDesc.Streams[0], "/proto.DME/RequestAccess", opts...)
 	if err != nil {
 		return nil, err
 	}
-	return out, nil
+	x := &dMERequestAccessClient{stream}
+	return x, nil
+}
+
+type DME_RequestAccessClient interface {
+	Send(*AccesRequest) error
+	Recv() (*AccessResponse, error)
+	grpc.ClientStream
+}
+
+type dMERequestAccessClient struct {
+	grpc.ClientStream
+}
+
+func (x *dMERequestAccessClient) Send(m *AccesRequest) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *dMERequestAccessClient) Recv() (*AccessResponse, error) {
+	m := new(AccessResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 // DMEServer is the server API for DME service.
 // All implementations must embed UnimplementedDMEServer
 // for forward compatibility
 type DMEServer interface {
-	RequestAccess(context.Context, *AccesRequest) (*AccesRequest, error)
+	RequestAccess(DME_RequestAccessServer) error
 	mustEmbedUnimplementedDMEServer()
 }
 
@@ -50,8 +72,8 @@ type DMEServer interface {
 type UnimplementedDMEServer struct {
 }
 
-func (UnimplementedDMEServer) RequestAccess(context.Context, *AccesRequest) (*AccesRequest, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method RequestAccess not implemented")
+func (UnimplementedDMEServer) RequestAccess(DME_RequestAccessServer) error {
+	return status.Errorf(codes.Unimplemented, "method RequestAccess not implemented")
 }
 func (UnimplementedDMEServer) mustEmbedUnimplementedDMEServer() {}
 
@@ -66,22 +88,30 @@ func RegisterDMEServer(s grpc.ServiceRegistrar, srv DMEServer) {
 	s.RegisterService(&DME_ServiceDesc, srv)
 }
 
-func _DME_RequestAccess_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(AccesRequest)
-	if err := dec(in); err != nil {
+func _DME_RequestAccess_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(DMEServer).RequestAccess(&dMERequestAccessServer{stream})
+}
+
+type DME_RequestAccessServer interface {
+	Send(*AccessResponse) error
+	Recv() (*AccesRequest, error)
+	grpc.ServerStream
+}
+
+type dMERequestAccessServer struct {
+	grpc.ServerStream
+}
+
+func (x *dMERequestAccessServer) Send(m *AccessResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *dMERequestAccessServer) Recv() (*AccesRequest, error) {
+	m := new(AccesRequest)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
-	if interceptor == nil {
-		return srv.(DMEServer).RequestAccess(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.DME/requestAccess",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DMEServer).RequestAccess(ctx, req.(*AccesRequest))
-	}
-	return interceptor(ctx, in, info, handler)
+	return m, nil
 }
 
 // DME_ServiceDesc is the grpc.ServiceDesc for DME service.
@@ -90,12 +120,14 @@ func _DME_RequestAccess_Handler(srv interface{}, ctx context.Context, dec func(i
 var DME_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "proto.DME",
 	HandlerType: (*DMEServer)(nil),
-	Methods: []grpc.MethodDesc{
+	Methods:     []grpc.MethodDesc{},
+	Streams: []grpc.StreamDesc{
 		{
-			MethodName: "requestAccess",
-			Handler:    _DME_RequestAccess_Handler,
+			StreamName:    "RequestAccess",
+			Handler:       _DME_RequestAccess_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
 	Metadata: "proto/nodes.proto",
 }
