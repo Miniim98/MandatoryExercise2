@@ -22,8 +22,9 @@ import (
 )
 
 type Node struct {
-	id   int
-	Addr string
+	id    int
+	Addr  string
+	state State
 	// Consul related variables
 	SDAddress string
 	SDKV      api.KV
@@ -63,8 +64,6 @@ func (s *State) writeState(newState string) {
 	s.st = newState
 }
 
-var state State
-
 func main() {
 	Time.time = 0
 	//var err error
@@ -99,10 +98,10 @@ func main() {
 
 func (n *Node) sendRequestAccess() {
 	for {
-		if state.readState().st != "HELD" {
+		if n.state.readState().st != "HELD" {
 			Time.UpTimestamp()
 			fmt.Println("sendRequest")
-			state.writeState("WANTED")
+			n.state.writeState("WANTED")
 			noOfResponse := 0
 
 			kvpairs, _, err := n.SDKV.List("", nil)
@@ -157,7 +156,7 @@ func (n *Node) sendRequestAccess() {
 				io.WriteString(file, strconv.Itoa(n.id)+" has the key\n")
 				//os.WriteFile("CriticalSection.txt", []byte(strconv.Itoa(n.id)+" has the key\n"), 0666)
 				fmt.Println()
-				state.writeState("HELD")
+				n.state.writeState("HELD")
 			}
 
 		}
@@ -189,8 +188,9 @@ func (n *Node) RequestAccess(stream pb.DME_RequestAccessServer) error {
 				first = int(in.RequestingId)
 			}
 		}
+		log.Printf("got req from %d", in.RequestingId)
 
-		if state.readState().st == "HELD" || (state.readState().st == "WANTED" && first == n.id) {
+		if n.state.readState().st == "HELD" || (n.state.readState().st == "WANTED" && first == n.id) {
 			streamQueue = append(streamQueue, stream)
 		} else {
 			Time.UpTimestamp()
@@ -200,13 +200,12 @@ func (n *Node) RequestAccess(stream pb.DME_RequestAccessServer) error {
 				log.Printf("Error when sending response Error : %v", err)
 			}
 		}
-		if state.readState().st == "HELD" {
-			time.Sleep(2 * time.Second)
+		if n.state.readState().st == "HELD" {
 			log.Println("I NO LONGER HAVE THE KEY")
 			file, _ := os.OpenFile("CriticalSection.txt", os.O_APPEND|os.O_RDWR|os.O_CREATE, 0666)
 			io.WriteString(file, strconv.Itoa(n.id)+" no longer has the key\n")
 			//os.WriteFile("CriticalSection.txt", []byte(strconv.Itoa(n.id)+" no longer has the key\n"), 0666)
-			state.writeState("RELEASED")
+			n.state.writeState("RELEASED")
 			time.Sleep(2 * time.Second)
 			for i := 0; i < len(streamQueue); i++ {
 				Time.UpTimestamp()

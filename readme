@@ -1,15 +1,24 @@
 To start a node:
+- navigate to nodes folder
+- start consul
+- start node
 
-navigate to nodes folder
-run command:
+to start node :
 go run main.go [id] [port] [sharedPort]
 
+id: this should be unique amongst the nodes
 port: the port this node will be listening on
-sharedport: the port which all nodes use to communicate
+sharedport: the port which all nodes use to communicate. This should be the same for all nodes
+
+example : 
+go run main.go 3 :5002 localhost:8500
 
 to start consul : 
 consul agent -dev
 to end consul :
 consul leave
-ex:
-go run main.go 3 :5002 localhost:8500
+
+A Note on the logs:
+the logs are not automatically deleted
+For ease of reading it is recommmended that you manually delete the logs before starting any nodes
+This also applies to the file CriticalSection.txt 
