@@ -21,4 +21,6 @@ consul leave
 A Note on the logs:
 the logs are not automatically deleted
 For ease of reading it is recommmended that you manually delete the logs before starting any nodes
-This also applies to the file CriticalSection.txt 
+This also applies to the file CriticalSection.txt
+
+Starting the nodes in quick succesion is not recommended.
