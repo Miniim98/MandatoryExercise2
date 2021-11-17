@@ -1,6 +1,7 @@
 package main
 
 import (
+
 	"context"
 	"fmt"
 	"io"
@@ -62,9 +63,15 @@ func (s *State) writeState(newState string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.st = newState
+
 }
 
+var queue []Node
+var network []Node
+var this Node
+
 func main() {
+
 	Time.time = 0
 	//var err error
 	args := os.Args[1:]
@@ -161,9 +168,11 @@ func (n *Node) sendRequestAccess() {
 
 		}
 
+
 	}
 
 }
+
 
 func (n *Node) RequestAccess(stream pb.DME_RequestAccessServer) error {
 	var streamQueue []pb.DME_RequestAccessServer = nil
@@ -218,9 +227,11 @@ func (n *Node) RequestAccess(stream pb.DME_RequestAccessServer) error {
 			}
 			n.sendRequestAccess()
 
+
 		}
 	}
 }
+
 
 func (n *Node) listen() {
 	for {
@@ -242,6 +253,7 @@ func (n *Node) listen() {
 
 func (n *Node) SetUpLog() {
 	var filename = "log" + strconv.Itoa(n.id)
+
 	LOG_FILE := filename
 	logFile, err := os.OpenFile(LOG_FILE, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0644)
 	if err != nil {
